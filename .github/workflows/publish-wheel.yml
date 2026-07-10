@@ -1,0 +1,46 @@
+name: Publish Wheel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build wheel
+        run: python -m build --wheel --outdir dist/
+
+      - name: Get wheel filename
+        id: wheel
+        run: echo "file=$(ls dist/*.whl)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to GitHub Releases
+        run: |
+          if gh release view latest-wheel &>/dev/null; then
+            gh release upload latest-wheel ${{ steps.wheel.outputs.file }} --clobber
+          else
+            gh release create latest-wheel \
+              --title "Latest Wheel" \
+              --notes "Auto-published wheel built from the latest commit on main." \
+              ${{ steps.wheel.outputs.file }}
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
